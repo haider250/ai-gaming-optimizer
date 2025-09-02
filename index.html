@@ -3,682 +3,316 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Whack-a-Mole</title>
+    <title>Master Your PC: AI Gaming Optimizer</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, onSnapshot, query, limit, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        // Log all Firestore debug messages to the console
-        setLogLevel('debug');
-
-        window.firebase = {
-            initializeApp,
-            getAuth,
-            signInAnonymously,
-            signInWithCustomToken,
-            onAuthStateChanged,
-            getFirestore,
-            collection,
-            addDoc,
-            onSnapshot,
-            query,
-            limit,
-            serverTimestamp
-        };
-    </script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
-        
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto+Mono&display=swap');
+
+        :root {
+            --primary-cyan: #00ffea;
+            --primary-purple: #9b5de5;
+            --bg-dark: #0f172a;
+            --bg-darker: #020617;
+            --text-light: #f1f5f9;
+            --accent-neon: #39ff14;
+        }
+
         body {
-            font-family: 'Inter', sans-serif;
-            background-color: #1a202c;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            color: white;
-            padding: 2rem;
-            box-sizing: border-box;
-        }
-
-        .game-container {
-            background-color: #2d3748;
-            padding: 2.5rem;
-            border-radius: 1.5rem;
-            box-shadow: 0 10px 15px rgba(0, 0, 0, 0.2);
-            text-align: center;
-            width: 100%;
-            max-width: 600px;
-        }
-
-        .title {
-            font-size: 2.5rem;
-            font-weight: bold;
-            color: #48bb78;
-            margin-bottom: 0.5rem;
-        }
-
-        .subtitle {
-            font-size: 1.25rem;
-            color: #a0aec0;
-            margin-bottom: 2rem;
-        }
-
-        .game-board {
-            position: relative;
-            background-image: url('https://placehold.co/600x600/4a5568/a0aec0?text=Whack-a-Mole+Board');
-            background-size: cover;
-            background-position: center;
-            border-radius: 1rem;
-            width: 100%;
-            padding-bottom: 100%; /* Creates a square aspect ratio */
-            margin-bottom: 2rem;
-            overflow: hidden;
-            border: 4px solid #48bb78;
-        }
-
-        .mole {
-            position: absolute;
-            width: 10%;
-            height: 10%;
-            background-color: #48bb78;
-            border-radius: 50%;
-            cursor: pointer;
-            transition: transform 0.1s ease-out;
-            box-shadow: 0 4px #38a169;
-        }
-
-        .mole:hover {
-            transform: scale(1.1);
-        }
-
-        .mole.hit {
-            background-color: #f56565;
-            box-shadow: 0 4px #e53e3e;
-            animation: hit-pulse 0.2s ease-out;
-        }
-
-        @keyframes hit-pulse {
-            0% { transform: scale(1.1); }
-            50% { transform: scale(0.9); }
-            100% { transform: scale(1); }
-        }
-        
-        .status-area {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 2rem;
-            font-size: 1.5rem;
-            font-weight: bold;
-            flex-wrap: wrap;
-        }
-        
-        .status-item {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            margin: 0.5rem;
-            flex-grow: 1;
-        }
-
-        .button-area {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 1rem;
-        }
-
-        .btn {
-            background-color: #4299e1;
-            color: white;
-            padding: 0.75rem 1.5rem;
-            border-radius: 0.75rem;
-            font-weight: bold;
-            transition: background-color 0.2s ease-in-out;
-            cursor: pointer;
-            border: none;
-            outline: none;
-            box-shadow: 0 4px #3182ce;
-        }
-
-        .btn:hover {
-            background-color: #3182ce;
-        }
-
-        .btn:active {
-            box-shadow: none;
-            transform: translateY(2px);
-        }
-
-        .btn-green {
-            background-color: #48bb78;
-            box-shadow: 0 4px #38a169;
-        }
-        
-        .btn-green:hover {
-            background-color: #38a169;
-        }
-        
-        .btn-green:active {
-            box-shadow: none;
-            transform: translateY(2px);
-        }
-
-        .btn-red {
-            background-color: #e53e3e;
-            box-shadow: 0 4px #c53030;
-        }
-        
-        .btn-red:hover {
-            background-color: #c53030;
-        }
-
-        .message {
-            margin-top: 1rem;
-            font-size: 1.25rem;
-            min-height: 1.5rem;
-        }
-        
-        .high-scores {
-            margin-top: 2rem;
-            text-align: left;
-            border-top: 2px solid #48bb78;
-            padding-top: 1rem;
-        }
-        
-        .high-scores ol {
-            list-style: none;
-            padding: 0;
+            background: linear-gradient(135deg, var(--bg-darker), var(--bg-dark));
+            color: var(--text-light);
+            font-family: 'Roboto Mono', monospace;
+            overflow-x: hidden;
             margin: 0;
         }
-        
-        .high-scores li {
-            background-color: #4a5568;
-            padding: 0.5rem 1rem;
-            border-radius: 0.5rem;
-            margin-bottom: 0.5rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        
-        .controls {
-            display: flex;
-            gap: 1rem;
-            justify-content: center;
-            align-items: center;
-            margin-bottom: 1rem;
+
+        h1, h2, h3 {
+            font-family: 'Orbitron', sans-serif;
         }
 
-        .collapsible-header {
-            cursor: pointer;
-            text-decoration: underline;
-            color: #4299e1;
-            font-weight: bold;
-            margin-top: 1rem;
+        .neon-glow {
+            box-shadow: 0 0 5px var(--primary-cyan), 0 0 10px var(--primary-cyan), 0 0 20px var(--primary-cyan);
+            text-shadow: 0 0 5px var(--primary-cyan);
         }
-        .collapsible-content {
-            display: none;
-            text-align: left;
-            padding: 1rem;
-            background-color: #4a5568;
-            border-radius: 0.5rem;
-            margin-top: 0.5rem;
+
+        .hover-scale {
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
         }
-        .collapsible-content.active {
-            display: block;
+
+        .hover-scale:hover {
+            transform: scale(1.05) translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0, 255, 234, 0.3);
+        }
+
+        .animate-pulse-slow {
+            animation: pulse 2.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+
+        .particle-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: -1;
+            overflow: hidden;
+        }
+
+        .particle {
+            position: absolute;
+            background: var(--accent-neon);
+            border-radius: 50%;
+            animation: float 12s infinite linear;
+            opacity: 0.4;
+        }
+
+        @keyframes float {
+            0% { transform: translateY(100vh) translateX(0); }
+            100% { transform: translateY(-100vh) translateX(calc(5vw * var(--direction))); }
+        }
+
+        .progress-bar {
+            transition: width 1.5s ease-in-out;
+        }
+
+        .card-3d {
+            transform: perspective(1000px) rotateY(0deg);
+            transition: transform 0.5s ease;
+        }
+
+        .card-3d:hover {
+            transform: perspective(1000px) rotateY(10deg);
+        }
+
+        @media (max-width: 768px) {
+            h1 { font-size: 2.25rem; }
+            h2 { font-size: 1.5rem; }
+            .card-3d:hover { transform: perspective(1000px) rotateY(5deg); }
         }
     </style>
 </head>
-<body>
-    <div class="game-container">
-        <h1 class="title">Whack-a-Mole</h1>
-        <p class="subtitle">Click the green circle to score points!</p>
-        
-        <div class="controls">
-            <label for="difficulty-select" class="text-sm font-semibold">Initial Difficulty:</label>
-            <select id="difficulty-select" class="p-2 rounded-lg bg-gray-700 text-white border-none outline-none">
-                <option value="easy">Easy</option>
-                <option value="normal">Normal</option>
-                <option value="hard">Hard</option>
-            </select>
-        </div>
+<body class="min-h-screen flex flex-col relative">
+    <!-- Particle Background -->
+    <div class="particle-bg" id="particle-container"></div>
 
-        <div class="status-area">
-            <div class="status-item"><span>Time:</span> <span id="time">0</span>s</div>
-            <div class="status-item"><span>Score:</span> <span id="score">0</span></div>
-            <div class="status-item"><span>Level:</span> <span id="level">1</span></div>
-        </div>
-        <p class="text-xs text-gray-400 mb-2">User ID: <span id="user-id"></span></p>
+    <!-- Header -->
+    <header class="bg-gradient-to-r from-var(--bg-dark) to-var(--bg-darker) p-6 text-center sticky top-0 z-10 shadow-lg">
+        <h1 class="text-4xl md:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-var(--primary-cyan) to-var(--primary-purple) neon-glow">
+            Master Your PC: AI Gaming Optimizer
+        </h1>
+        <p class="mt-2 text-lg text-gray-300">Next-Gen AI for Unmatched Gaming Performance</p>
+    </header>
 
-        <div class="game-board" id="game-board"></div>
-        <div class="button-area">
-            <div class="flex gap-4">
-                <button id="start-btn" class="btn btn-green">Start</button>
-                <button id="pause-btn" class="btn" disabled>Pause</button>
-                <button id="stop-btn" class="btn btn-red" disabled>Stop</button>
+    <!-- Main Content -->
+    <main class="flex-grow max-w-7xl mx-auto p-6 space-y-16 z-0">
+        <!-- Hero Section -->
+        <section class="text-center animate-pulse-slow">
+            <h2 class="text-3xl md:text-4xl font-semibold text-var(--primary-cyan) mb-4 neon-glow">Redefine Gaming with AI Precision</h2>
+            <p class="text-gray-300 max-w-3xl mx-auto text-lg">
+                Our AI-driven optimizer analyzes your system in real-time, predicts bottlenecks, and applies hyper-optimized settings for ultra-realistic, lag-free gameplay.
+            </p>
+            <button id="detect-hardware" class="mt-6 px-8 py-4 bg-gradient-to-r from-var(--primary-cyan) to-var(--primary-purple) text-var(--bg-dark) font-bold rounded-full neon-glow hover-scale">
+                Scan My System
+            </button>
+        </section>
+
+        <!-- Optimization Tool -->
+        <section class="bg-var(--bg-dark) p-8 rounded-2xl neon-glow shadow-2xl">
+            <h2 class="text-2xl md:text-3xl font-semibold text-var(--primary-cyan) mb-6">AI-Powered Performance Tuner</h2>
+            <p class="text-gray-300 mb-8 text-md">Select a game and optimize based on your hardware's real-time capabilities.</p>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div>
+                    <label for="game-select" class="block text-sm font-medium text-gray-200 mb-2">Select Game</label>
+                    <select id="game-select" class="p-3 w-full bg-var(--bg-darker) text-gray-200 rounded-lg border border-gray-600 focus:border-var(--primary-cyan) transition">
+                        <option value="cyberpunk">Cyberpunk 2077</option>
+                        <option value="fortnite">Fortnite</option>
+                        <option value="cs2">Counter-Strike 2</option>
+                        <option value="eldenring">Elden Ring</option>
+                        <option value="starfield">Starfield</option>
+                    </select>
+                </div>
+                <div id="hardware-info" class="bg-var(--bg-darker) p-4 rounded-lg">
+                    <label class="block text-sm font-medium text-gray-200 mb-2">System Specs</label>
+                    <p id="cpu-cores" class="text-gray-300">CPU Cores: Click 'Scan' to detect</p>
+                    <p id="memory" class="text-gray-300">Memory: Click 'Scan' to detect</p>
+                    <p id="gpu-support" class="text-gray-300">GPU: Click 'Scan' to detect</p>
+                </div>
             </div>
-            <button id="restart-btn" class="btn" disabled>Restart</button>
-        </div>
-        <p id="message" class="message"></p>
-        
-        <div class="high-scores">
-            <h2 class="text-xl font-bold mb-2">High Scores</h2>
-            <ol id="high-score-list"></ol>
-        </div>
+            <button id="optimize-btn" class="mt-8 px-8 py-4 bg-gradient-to-r from-var(--primary-purple) to-var(--primary-cyan) text-var(--bg-dark) font-bold rounded-full neon-glow hover-scale w-full md:w-auto">
+                Optimize Performance
+            </button>
+            <div id="optimization-result" class="mt-8 hidden">
+                <p class="font-semibold text-var(--primary-cyan) mb-4">Optimization Report:</p>
+                <div class="bg-var(--bg-darker) p-6 rounded-lg space-y-4">
+                    <p id="result-text" class="text-gray-300"></p>
+                    <div class="w-full bg-gray-700 rounded-full h-3">
+                        <div id="fps-boost-bar" class="bg-var(--accent-neon) h-3 rounded-full progress-bar" style="width: 0%"></div>
+                    </div>
+                    <p id="fps-boost-text" class="text-sm text-gray-400"></p>
+                </div>
+            </div>
+        </section>
 
-        <div class="collapsible-header" id="how-to-play-header">How to Play & Features</div>
-        <div class="collapsible-content" id="how-to-play-content">
-            <h3 class="font-bold text-lg mb-2">Objective</h3>
-            <p>Click on the green moles as they pop up to earn points. Be quick, or you'll lose points!</p>
-            <h3 class="font-bold text-lg mt-4 mb-2">Levels & Rewards</h3>
-            <p>The game has 50 levels. Each time you reach a new level, moles appear faster and you earn more points for each hit. Missing a mole will penalize your score. The penalty is higher on more difficult levels!</p>
-            <h3 class="font-bold text-lg mt-4 mb-2">Features</h3>
-            <ul class="list-disc list-inside">
-                <li>**Real-time Leaderboard:** Compete with other players globally with a live high score board.</li>
-                <li>**Adjustable Difficulty:** Choose an initial difficulty to set your starting pace.</li>
-                <li>**Dynamic Feedback:** Get instant on-screen messages and sound effects for hits and misses.</li>
-                <li>**Full Controls:** Use the Start/Pause/Stop/Restart buttons to manage your game session.</li>
-            </ul>
-        </div>
-    </div>
+        <!-- Hardware Insights -->
+        <section class="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div class="bg-var(--bg-dark) p-8 rounded-2xl hover-scale neon-glow card-3d">
+                <h3 class="text-xl font-medium text-var(--primary-purple) mb-4">AI-Enhanced GPUs</h3>
+                <p class="text-gray-300">Next-gen GPUs leverage tensor cores for DLSS 4.0, delivering photorealistic visuals with up to 4x upscaling efficiency.</p>
+            </div>
+            <div class="bg-var(--bg-dark) p-8 rounded-2xl hover-scale neon-glow card-3d">
+                <h3 class="text-xl font-medium text-var(--primary-purple) mb-4">Neural Processing Units</h3>
+                <p class="text-gray-300">NPUs accelerate AI workloads, enabling real-time optimization for seamless gameplay without latency.</p>
+            </div>
+            <div class="bg-var(--bg-dark) p-8 rounded-2xl hover-scale neon-glow card-3d">
+                <h3 class="text-xl font-medium text-var(--primary-purple) mb-4">Dynamic Frame Sync</h3>
+                <p class="text-gray-300">AI-driven G-Sync and frame generation ensure buttery-smooth visuals, adapting to variable workloads.</p>
+            </div>
+        </section>
 
-    <div id="custom-message-box" class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-gray-800 border-2 border-gray-600 rounded-2xl p-8 text-center z-50 backdrop-blur-sm hidden">
-        <p id="custom-message-text" class="text-white text-xl font-semibold mb-4"></p>
-        <button id="custom-message-ok" class="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg transition-colors">OK</button>
-    </div>
+        <!-- Benchmark Visualization -->
+        <section class="text-center">
+            <h2 class="text-2xl md:text-3xl font-semibold text-var(--primary-cyan) mb-6 neon-glow">Real-Time Performance Visualizer</h2>
+            <p class="text-gray-300 max-w-3xl mx-auto text-lg mb-8">
+                Watch AI optimize your system with a live performance waveform, simulating real-time FPS and resource allocation.
+            </p>
+            <canvas id="demo-canvas" class="w-full h-80 bg-var(--bg-darker) rounded-2xl mx-auto neon-glow" width="800" height="400"></canvas>
+        </section>
+    </main>
 
-    <script type="module">
-        // Global variables provided by the canvas environment
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-        // Corrected Firebase authentication token variable name
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+    <!-- Footer -->
+    <footer class="bg-var(--bg-darker) p-6 text-center text-gray-500 mt-auto">
+        <p>&copy; 2025 xAI Gaming Labs. Powered by Grok Intelligence.</p>
+    </footer>
 
-        // --- Firebase Setup ---
-        let db, auth, userId;
-        
-        const { initializeApp, getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, getFirestore, collection, addDoc, onSnapshot, query, limit, serverTimestamp } = window.firebase;
-        
-        try {
-            const app = initializeApp(firebaseConfig);
-            db = getFirestore(app);
-            auth = getAuth(app);
-            
-            // Listen for auth state changes and initialize the game
-            onAuthStateChanged(auth, async (user) => {
-                if (user) {
-                    userId = user.uid;
-                    // Truncate the user ID for display
-                    document.getElementById('user-id').textContent = userId.substring(0, 8) + '...';
-                    fetchHighScores();
-                } else {
-                    if (initialAuthToken) {
-                        await signInWithCustomToken(auth, initialAuthToken);
-                    } else {
-                        await signInAnonymously(auth);
-                    }
-                }
-            });
-        } catch (error) {
-            console.error("Firebase initialization error:", error);
-            showMessageBox("Failed to initialize Firebase. Please check the console for details.");
-        }
-        
-        // Helper function for the custom message box
-        function showMessageBox(message) {
-            const messageBox = document.getElementById('custom-message-box');
-            const messageText = document.getElementById('custom-message-text');
-            const okButton = document.getElementById('custom-message-ok');
-            messageText.textContent = message;
-            messageBox.classList.remove('hidden');
-            return new Promise(resolve => {
-                okButton.onclick = () => {
-                    messageBox.classList.add('hidden');
-                    resolve();
-                };
-            });
-        }
-        
-        // --- Audio Setup with Tone.js ---
-        const synth = new Tone.Synth().toDestination();
-        const hitSynth = new Tone.MembraneSynth().toDestination();
-        const missSynth = new Tone.NoiseSynth({
-            noise: { type: 'pink' },
-            envelope: { attack: 0.001, decay: 0.2, sustain: 0, release: 0.2 }
-        }).toDestination();
-
-        let backgroundLoop;
-
-        function startMusic() {
-            if (backgroundLoop) return;
-            Tone.context.resume();
-            backgroundLoop = new Tone.Loop(time => {
-                synth.triggerAttackRelease("C4", "8n", time);
-                synth.triggerAttackRelease("E4", "8n", time + 0.5);
-                synth.triggerAttackRelease("G4", "8n", time + 1);
-            }, "1m").start(0);
-            Tone.Transport.start();
-        }
-
-        function stopMusic() {
-            if (backgroundLoop) {
-                backgroundLoop.stop();
-                backgroundLoop = null;
-            }
-            Tone.Transport.stop();
-        }
-        
-        // --- Game State and DOM Elements ---
-        let score = 0;
-        let gameTime = 30; // 30 seconds
-        let isGameRunning = false;
-        let isPaused = false;
-        let gameInterval;
-        let moleTimeout;
-        let timeRemaining = gameTime;
-        let currentLevel = 1;
-
-        const scoreEl = document.getElementById('score');
-        const timeEl = document.getElementById('time');
-        const levelEl = document.getElementById('level');
-        const messageEl = document.getElementById('message');
-        const gameBoard = document.getElementById('game-board');
-        const startBtn = document.getElementById('start-btn');
-        const pauseBtn = document.getElementById('pause-btn');
-        const stopBtn = document.getElementById('stop-btn');
-        const restartBtn = document.getElementById('restart-btn');
-        const difficultySelect = document.getElementById('difficulty-select');
-        const highScoreList = document.getElementById('high-score-list');
-        const howToPlayHeader = document.getElementById('how-to-play-header');
-        const howToPlayContent = document.getElementById('how-to-play-content');
-        
-        // Difficulty settings and level progression
-        const levelData = {
-            easy: { moleAppearanceDelay: 1500, moleDisplayTime: 1000, hitPoints: 1, missPenalty: 0 },
-            normal: { moleAppearanceDelay: 1000, moleDisplayTime: 800, hitPoints: 1, missPenalty: 1 },
-            hard: { moleAppearanceDelay: 500, moleDisplayTime: 600, hitPoints: 2, missPenalty: 2 }
-        };
-
-        const levelUpThreshold = 5; // Score needed to level up
-        let nextLevelScoreThreshold = levelUpThreshold;
-
-        // --- Game Logic ---
-        function startGame() {
-            if (isGameRunning && !isPaused) {
-                pauseGame();
-                return;
-            }
-            
-            if (isPaused) {
-                isPaused = false;
-                messageEl.textContent = 'Game Resumed!';
-                gameInterval = setInterval(updateTimer, 1000);
-                startMusic();
-                createMole();
-            } else {
-                isGameRunning = true;
-                score = 0;
-                currentLevel = 1;
-                nextLevelScoreThreshold = levelUpThreshold;
-                scoreEl.textContent = score;
-                levelEl.textContent = currentLevel;
-                messageEl.textContent = 'Game Started!';
-                gameBoard.innerHTML = '';
-                timeRemaining = gameTime;
-                timeEl.textContent = timeRemaining;
-                
-                gameInterval = setInterval(updateTimer, 1000);
-                startMusic();
-                createMole();
-            }
-
-            // Button state management
-            startBtn.textContent = 'Pause';
-            startBtn.classList.remove('btn-green');
-            startBtn.classList.add('btn');
-            pauseBtn.disabled = false;
-            stopBtn.disabled = false;
-            restartBtn.disabled = true;
-        }
-
-        function pauseGame() {
-            isPaused = true;
-            clearInterval(gameInterval);
-            clearTimeout(moleTimeout);
-            gameBoard.innerHTML = ''; // Hide the mole
-            messageEl.textContent = 'Game Paused.';
-            startBtn.textContent = 'Resume';
-            startBtn.classList.remove('btn');
-            startBtn.classList.add('btn-green');
-            stopMusic();
-        }
-
-        function stopGame() {
-            endGame();
-            messageEl.textContent = 'Game Stopped. Press Start to play again.';
-            startBtn.disabled = false;
-            restartBtn.disabled = false;
-        }
-
-        function endGame() {
-            isGameRunning = false;
-            isPaused = false;
-            clearInterval(gameInterval);
-            clearTimeout(moleTimeout);
-            gameBoard.innerHTML = '';
-            messageEl.textContent = `Game Over! Your final score is ${score}.`;
-            stopMusic();
-            saveScore(score);
-
-            // Reset UI for end of game
-            startBtn.textContent = 'Start';
-            startBtn.classList.remove('btn');
-            startBtn.classList.add('btn-green');
-            startBtn.disabled = false;
-            pauseBtn.disabled = true;
-            stopBtn.disabled = true;
-            restartBtn.disabled = false;
-            timeRemaining = gameTime;
-            timeEl.textContent = timeRemaining;
-        }
-
-        function restartGame() {
-            // Reset all state to initial values
-            isGameRunning = false;
-            isPaused = false;
-            score = 0;
-            currentLevel = 1;
-            nextLevelScoreThreshold = levelUpThreshold;
-            timeRemaining = gameTime;
-            clearInterval(gameInterval);
-            clearTimeout(moleTimeout);
-            
-            // Reset UI
-            scoreEl.textContent = score;
-            levelEl.textContent = currentLevel;
-            timeEl.textContent = timeRemaining;
-            gameBoard.innerHTML = '';
-            messageEl.textContent = 'Ready to start a new game!';
-            
-            // Reset buttons
-            startBtn.textContent = 'Start';
-            startBtn.classList.remove('btn');
-            startBtn.classList.add('btn-green');
-            startBtn.disabled = false;
-            pauseBtn.disabled = true;
-            stopBtn.disabled = true;
-            restartBtn.disabled = true;
-        }
-
-        function updateTimer() {
-            timeRemaining--;
-            timeEl.textContent = timeRemaining;
-            if (timeRemaining <= 0) {
-                endGame();
-            }
-            
-            if (score >= nextLevelScoreThreshold && currentLevel < 50) {
-                levelUp();
+    <script>
+        // Particle Effects
+        function createParticles() {
+            const container = document.getElementById('particle-container');
+            for (let i = 0; i < 60; i++) {
+                const particle = document.createElement('div');
+                particle.classList.add('particle');
+                particle.style.width = `${Math.random() * 4 + 1}px`;
+                particle.style.height = particle.style.width;
+                particle.style.left = `${Math.random() * 100}vw`;
+                particle.style.animationDuration = `${Math.random() * 8 + 6}s`;
+                particle.style.animationDelay = `${Math.random() * 4}s`;
+                particle.style.setProperty('--direction', Math.random() > 0.5 ? 1 : -1);
+                container.appendChild(particle);
             }
         }
+        createParticles();
 
-        function levelUp() {
-            currentLevel++;
-            nextLevelScoreThreshold += levelUpThreshold * currentLevel;
-            levelEl.textContent = currentLevel;
-            messageEl.textContent = `Level Up! Now at Level ${currentLevel}!`;
-        }
+        // Hardware Detection
+        const detectBtn = document.getElementById('detect-hardware');
+        const cpuCoresEl = document.getElementById('cpu-cores');
+        const memoryEl = document.getElementById('memory');
+        const gpuSupportEl = document.getElementById('gpu-support');
 
-        function getMoleConfig() {
-            const initialDifficulty = difficultySelect.value;
-            const baseConfig = levelData[initialDifficulty];
-            
-            // Adjust mole speed and points based on level
-            const moleAppearanceDelay = Math.max(200, baseConfig.moleAppearanceDelay - (currentLevel - 1) * 20);
-            const moleDisplayTime = Math.max(200, baseConfig.moleDisplayTime - (currentLevel - 1) * 10);
-            const hitPoints = baseConfig.hitPoints + Math.floor((currentLevel - 1) / 5);
-            const missPenalty = baseConfig.missPenalty + Math.floor((currentLevel - 1) / 10);
-            
-            return { moleAppearanceDelay, moleDisplayTime, hitPoints, missPenalty };
-        }
-
-        function createMole() {
-            if (!isGameRunning || isPaused) {
-                clearTimeout(moleTimeout);
-                return;
-            }
-
-            // Clear existing mole and its timeout
-            gameBoard.innerHTML = '';
-            clearTimeout(moleTimeout);
-
-            const { moleDisplayTime, moleAppearanceDelay, hitPoints, missPenalty } = getMoleConfig();
-
-            const mole = document.createElement('div');
-            mole.classList.add('mole');
-            
-            const boardSize = gameBoard.getBoundingClientRect();
-            const moleSize = boardSize.width * 0.1;
-            
-            const maxX = boardSize.width - moleSize;
-            const maxY = boardSize.height - moleSize;
-            
-            const randomX = Math.random() * maxX;
-            const randomY = Math.random() * maxY;
-            
-            mole.style.left = `${randomX}px`;
-            mole.style.top = `${randomY}px`;
-            
-            mole.addEventListener('click', (e) => {
-                e.stopPropagation();
-                if (isGameRunning && !isPaused) {
-                    score += hitPoints;
-                    scoreEl.textContent = score;
-                    mole.classList.add('hit');
-                    hitSynth.triggerAttackRelease("C2", "8n");
-                    messageEl.textContent = `Hit! (+${hitPoints})`;
-                    // A hit immediately creates a new mole
-                    clearTimeout(moleTimeout);
-                    moleTimeout = setTimeout(createMole, moleAppearanceDelay);
-                }
-            });
-
-            gameBoard.appendChild(mole);
-
-            // Set a timeout for the mole to disappear if not hit
-            moleTimeout = setTimeout(() => {
-                if(isGameRunning && !isPaused) {
-                    score = Math.max(0, score - missPenalty);
-                    scoreEl.textContent = score;
-                    missSynth.triggerAttackRelease("8n");
-                    messageEl.textContent = "Miss!";
-                    createMole(); // Create a new mole
-                }
-            }, moleDisplayTime);
-        }
-
-        gameBoard.addEventListener('click', (e) => {
-            if (isGameRunning && !isPaused && !e.target.classList.contains('mole')) {
-                const { missPenalty } = getMoleConfig();
-                score = Math.max(0, score - missPenalty);
-                scoreEl.textContent = score;
-                missSynth.triggerAttackRelease("8n");
-                messageEl.textContent = "Miss!";
-            }
-        });
-
-        // --- Firestore High Score Logic ---
-        async function saveScore(finalScore) {
-            if (!db || !userId) return;
-            const scoresRef = collection(db, `/artifacts/${appId}/public/data/scores`);
+        detectBtn.addEventListener('click', () => {
             try {
-                await addDoc(scoresRef, {
-                    userId: userId,
-                    score: finalScore,
-                    timestamp: serverTimestamp(),
-                });
-                console.log("Score saved successfully!");
-            } catch (e) {
-                console.error("Error saving score:", e);
-                showMessageBox("Failed to save score. Check the console for details.");
+                const cpuCores = navigator.hardwareConcurrency || 'Unknown';
+                const memory = navigator.deviceMemory ? `${navigator.deviceMemory} GB` : 'Unknown';
+                const gpuSupport = 'gpu' in navigator ? 'WebGPU Supported' : 'No WebGPU Support';
+
+                cpuCoresEl.textContent = `CPU Cores: ${cpuCores}`;
+                memoryEl.textContent = `Memory: ${memory}`;
+                gpuSupportEl.textContent = `GPU: ${gpuSupport}`;
+            } catch (error) {
+                console.error('Hardware detection failed:', error);
+                cpuCoresEl.textContent = 'CPU Cores: Detection Failed';
+                memoryEl.textContent = 'Memory: Detection Failed';
+                gpuSupportEl.textContent = 'GPU: Detection Failed';
             }
-        }
-
-        function fetchHighScores() {
-            if (!db) return;
-            const scoresRef = collection(db, `/artifacts/${appId}/public/data/scores`);
-            // Limit to top 10 scores
-            const q = query(scoresRef, limit(10));
-            
-            onSnapshot(q, (snapshot) => {
-                const scores = [];
-                snapshot.forEach((doc) => {
-                    const data = doc.data();
-                    scores.push(data);
-                });
-                scores.sort((a, b) => b.score - a.score);
-                renderHighScores(scores);
-            }, (error) => {
-                console.error("Error fetching high scores:", error);
-            });
-        }
-
-        function renderHighScores(scores) {
-            highScoreList.innerHTML = '';
-            if (scores.length === 0) {
-                highScoreList.innerHTML = '<li class="text-gray-400">No scores yet. Be the first!</li>';
-                return;
-            }
-            scores.forEach((s, index) => {
-                const li = document.createElement('li');
-                // Truncate the user ID for display on the leaderboard
-                const displayUserId = s.userId ? s.userId.substring(0, 8) + '...' : 'Anonymous';
-                li.innerHTML = `<span>#${index + 1} User: ${displayUserId}</span><span>${s.score}</span>`;
-                highScoreList.appendChild(li);
-            });
-        }
-        
-        // Event listeners for buttons
-        startBtn.addEventListener('click', startGame);
-        pauseBtn.addEventListener('click', pauseGame);
-        stopBtn.addEventListener('click', stopGame);
-        restartBtn.addEventListener('click', restartGame);
-
-        // How to Play collapsible
-        howToPlayHeader.addEventListener('click', () => {
-            howToPlayContent.classList.toggle('active');
         });
-        
-        // Initial call on window load
-        window.onload = function() {
-            console.log('Game loaded. Press "Start Game" to begin.');
-        };
+
+        // Optimization Logic
+        const optimizeBtn = document.getElementById('optimize-btn');
+        const gameSelect = document.getElementById('game-select');
+        const resultDiv = document.getElementById('optimization-result');
+        const resultText = document.getElementById('result-text');
+        const fpsBar = document.getElementById('fps-boost-bar');
+        const fpsText = document.getElementById('fps-boost-text');
+
+        optimizeBtn.addEventListener('click', () => {
+            try {
+                const game = gameSelect.value;
+                const cpuCores = navigator.hardwareConcurrency || 4;
+                const memory = navigator.deviceMemory || 8;
+                let hardwareLevel = 'low';
+                if (cpuCores > 8 && memory >= 16) hardwareLevel = 'high';
+                else if (cpuCores > 4 && memory >= 8) hardwareLevel = 'mid';
+
+                let result = '';
+                let fpsBoost = 0;
+
+                switch (hardwareLevel) {
+                    case 'low':
+                        result = `Optimized ${game} for low-end systems: Reduced resolution to 720p, disabled ray tracing, enabled low-poly textures.`;
+                        fpsBoost = 45;
+                        break;
+                    case 'mid':
+                        result = `Optimized ${game} for mid-range systems: Enabled balanced ray tracing, medium textures, and DLSS Quality mode.`;
+                        fpsBoost = 30;
+                        break;
+                    case 'high':
+                        result = `Optimized ${game} for high-end systems: Full ray tracing, ultra textures, and DLSS 4.0 for maximum immersion.`;
+                        fpsBoost = 20;
+                        break;
+                    default:
+                        result = `Unable to optimize ${game}: Insufficient hardware data.`;
+                        fpsBoost = 0;
+                }
+
+                resultText.textContent = result;
+                fpsText.textContent = `Estimated FPS Boost: ${fpsBoost > 0 ? '+' + fpsBoost + '%' : 'N/A'}`;
+                fpsBar.style.width = '0%';
+                setTimeout(() => { fpsBar.style.width = `${fpsBoost + 10}%`; }, 100);
+                resultDiv.classList.remove('hidden');
+            } catch (error) {
+                console.error('Optimization failed:', error);
+                resultText.textContent = 'Optimization failed. Please try again.';
+                fpsText.textContent = 'Estimated FPS Boost: N/A';
+                resultDiv.classList.remove('hidden');
+            }
+        });
+
+        // Canvas Visualization: Dynamic Waveform
+        const canvas = document.getElementById('demo-canvas');
+        const ctx = canvas.getContext('2d');
+        let time = 0;
+
+        function drawWaveform() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.beginPath();
+            ctx.moveTo(0, canvas.height / 2);
+            for (let x = 0; x < canvas.width; x += 2) {
+                const y = canvas.height / 2 + Math.sin((x * 0.02 + time * 0.05)) * 80 * Math.cos(time * 0.02);
+                ctx.lineTo(x, y);
+            }
+            ctx.strokeStyle = 'var(--primary-cyan)';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+
+            // Add secondary wave for depth
+            ctx.beginPath();
+            ctx.moveTo(0, canvas.height / 2);
+            for (let x = 0; x < canvas.width; x += 2) {
+                const y = canvas.height / 2 + Math.cos((x * 0.015 + time * 0.03)) * 60 * Math.sin(time * 0.01);
+                ctx.lineTo(x, y);
+            }
+            ctx.strokeStyle = 'var(--primary-purple)';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            time += 1;
+            requestAnimationFrame(drawWaveform);
+        }
+        drawWaveform();
     </script>
 </body>
 </html>
